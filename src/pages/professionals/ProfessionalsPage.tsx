@@ -1,8 +1,27 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { mockProfessionals, type Professional } from "@/mocks/professionals";
+
+// Dados locais - sem precisar de mock
+const initialProfessionals = [
+  { id: 1, name: "Carlos Eduardo", initials: "CE", role: "Barbeiro", email: "carlos@barberos.com", phone: "(11) 99999-1111", specialties: ["Corte", "Barba"], active: true, createdAt: "10/01/2024" },
+  { id: 2, name: "Ana Silva", initials: "AS", role: "Cabeleireira", email: "ana@barberos.com", phone: "(11) 99999-2222", specialties: ["Corte Feminino", "Coloração"], active: true, createdAt: "15/02/2024" },
+  { id: 3, name: "Roberto Santos", initials: "RS", role: "Stylist", email: "roberto@barberos.com", phone: "(11) 99999-3333", specialties: ["Corte", "Barba", "Pigmentação"], active: false, createdAt: "20/03/2024" },
+];
 
 type Filter = "todos" | "ativos" | "inativos";
+
+// Interface Professional
+interface Professional {
+  id: number;
+  name: string;
+  initials: string;
+  role: string;
+  email: string;
+  phone: string;
+  specialties: string[];
+  active: boolean;
+  createdAt: string;
+}
 
 function getInitialsColor(initials: string) {
   const colors = ["bg-amber-500","bg-violet-500","bg-rose-500","bg-teal-500","bg-sky-500","bg-orange-500","bg-emerald-500","bg-pink-500"];
@@ -134,7 +153,7 @@ function DeleteModal({ professional, onClose, onConfirm }: DeleteModalProps) {
 
 export default function ProfessionalsPage() {
   const navigate = useNavigate();
-  const [professionals, setProfessionals] = useState<Professional[]>(mockProfessionals);
+  const [professionals, setProfessionals] = useState<Professional[]>(initialProfessionals);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("todos");
   const [showModal, setShowModal] = useState(false);
@@ -242,7 +261,7 @@ export default function ProfessionalsPage() {
         </div>
       </div>
 
-      {/* Cards de Profissionais - Layout estilo o da imagem */}
+      {/* Cards de Profissionais */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.length === 0 ? (
           <div className="col-span-full bg-zinc-900 border border-zinc-800 rounded-xl px-5 py-12 text-center">

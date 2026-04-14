@@ -1,8 +1,25 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { mockClients, type Client } from "@/mocks/clients";
+
+// Dados locais - sem precisar de mock
+const initialClients = [
+  { id: 1, name: "João Silva", initials: "JS", email: "joao@email.com", phone: "(11) 99999-1111", active: true, createdAt: "10/01/2024" },
+  { id: 2, name: "Maria Santos", initials: "MS", email: "maria@email.com", phone: "(11) 99999-2222", active: true, createdAt: "15/02/2024" },
+  { id: 3, name: "Pedro Costa", initials: "PC", email: "pedro@email.com", phone: "(11) 99999-3333", active: false, createdAt: "20/03/2024" },
+];
 
 type Filter = "todos" | "ativos" | "inativos";
+
+// Interface Client
+interface Client {
+  id: number;
+  name: string;
+  initials: string;
+  email: string;
+  phone: string;
+  active: boolean;
+  createdAt: string;
+}
 
 function getInitialsColor(initials: string) {
   const colors = ["bg-amber-500","bg-violet-500","bg-rose-500","bg-teal-500","bg-sky-500","bg-orange-500","bg-emerald-500","bg-pink-500"];
@@ -111,7 +128,7 @@ function DeleteModal({ client, onClose, onConfirm }: DeleteModalProps) {
 
 export default function ClientsPage() {
   const navigate = useNavigate();
-  const [clients, setClients]               = useState<Client[]>(mockClients);
+  const [clients, setClients]               = useState<Client[]>(initialClients);
   const [search, setSearch]                 = useState("");
   const [filter, setFilter]                 = useState<Filter>("todos");
   const [showModal, setShowModal]           = useState(false);
