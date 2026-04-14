@@ -1,74 +1,161 @@
-# React + TypeScript + Vite
+# 💈 BarberOs - Sistema de Gestão para Barbearia
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Sistema moderno e completo para gestão de barbearias, desenvolvido com React, TypeScript e Tailwind CSS. Permite o gerenciamento de clientes, profissionais, agendamentos e serviços.
 
-Currently, two official plugins are available:
+## ✨ Demonstração
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+🔗 **Acesse o projeto:** [https://vagner-guedes.github.io/BarberOs/](https://vagner-guedes.github.io/BarberOs/)
 
-## React Compiler
+## 🚀 Tecnologias
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Frontend
+| Tecnologia | Versão | Descrição |
+|------------|--------|------------|
+| React | 19.x | Biblioteca principal para UI |
+| TypeScript | 6.x | Tipagem estática |
+| Vite | 8.x | Build tool e dev server |
+| Tailwind CSS | 3.x | Framework de CSS utilitário |
+| React Router DOM | 7.x | Navegação entre rotas |
+| React Hook Form | 7.x | Gerenciamento de formulários |
+| Zod | 4.x | Validação de schemas |
+| Axios | 1.x | Cliente HTTP |
+| Lucide React | 1.x | Biblioteca de ícones |
 
-## Expanding the ESLint configuration
+### UI Components
+- **@radix-ui/react-label** - Labels acessíveis
+- **@radix-ui/react-slot** - Composición de componentes
+- **class-variance-authority** - Variantes de classes
+- **clsx** - Utilitário para classes condicionais
+- **tailwind-merge** - Merge de classes Tailwind
+- **sonner** - Toast notifications
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 📦 Instalação
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+```bash
+# Clone o repositório
+git clone https://github.com/Vagner-Guedes/BarberOs.git
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+# Entre no diretório
+cd BarberOs
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+# Instale as dependências
+npm install
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+# Execute em desenvolvimento
+npm run dev
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+🌐 Acessar
+Ambiente	URL
+Local	http://localhost:5173
+Produção	https://vagner-guedes.github.io/BarberOs
+📁 Estrutura do Projeto
+text
+BarberOs/
+├── src/
+│   ├── components/          # Componentes reutilizáveis
+│   ├── contexts/            # Contextos React
+│   ├── hooks/               # Hooks customizados
+│   ├── layouts/             # Layouts da aplicação
+│   │   └── AppLayout.tsx    # Layout principal com menu
+│   ├── lib/                 # Utilitários e helpers
+│   ├── mocks/               # Dados mockados
+│   ├── pages/               # Páginas da aplicação
+│   │   ├── appointments/    # Agendamentos
+│   │   ├── auth/            # Autenticação
+│   │   │   └── LoginPage.tsx
+│   │   ├── clients/         # Clientes
+│   │   │   └── ClientsPage.tsx
+│   │   ├── dashboard/       # Dashboard
+│   │   │   └── DashboardPage.tsx
+│   │   ├── professionals/   # Profissionais
+│   │   │   └── ProfessionalsPage.tsx
+│   │   ├── services/        # Serviços
+│   │   │   └── ServicesPage.tsx
+│   │   └── settings/        # Configurações
+│   │       └── SettingsPage.tsx
+│   ├── routes/              # Configuração de rotas
+│   │   └── index.tsx
+│   ├── App.tsx              # Componente principal
+│   ├── main.tsx             # Entry point
+│   └── index.css            # Estilos do Tailwind
+├── public/                  # Arquivos estáticos
+├── index.html
+├── package.json
+├── postcss.config.js
+├── tailwind.config.js
+├── tsconfig.json
+├── vite.config.ts
+└── README.md
+🛠️ Scripts Disponíveis
+Comando	Descrição
+npm run dev	Inicia o servidor de desenvolvimento
+npm run build	Gera o build de produção
+npm run preview	Visualiza o build localmente
+npm run deploy	Publica no GitHub Pages
+npm run lint	Executa o ESLint
+📱 Funcionalidades
+✅ Implementadas
+✅ Dashboard com métricas e cards informativos
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
-# BarberOs
+✅ CRUD completo de Clientes (criar, editar, listar, remover, ativar/inativar)
+
+✅ CRUD completo de Profissionais (criar, editar, listar, remover, ativar/inativar)
+
+✅ Busca e filtros por nome, email, telefone
+
+✅ Layout responsivo (Desktop e Mobile)
+
+✅ Tema escuro consistente
+
+✅ Menu lateral com navegação
+
+✅ Formulários com validação
+
+✅ Modais para criação/edição
+
+✅ Deploy automatizado no GitHub Pages
+
+🔄 Em desenvolvimento
+🔄 Agendamentos (calendário)
+
+🔄 Serviços com preços
+
+🔄 Configurações da barbearia
+
+🔄 Autenticação completa (JWT)
+
+🔄 Integração com backend API
+
+🔄 Relatórios e gráficos
+
+🎨 Paleta de Cores
+Cor	Uso	Código
+Amber	Primária, botões, destaques	#f59e0b
+Zinc	Fundo principal	#18181b
+Emerald	Status ativo, sucesso	#10b981
+Violet	Destaques secundários	#8b5cf6
+Rose	Alertas, destaques	#f43f5e
+Sky	Informações	#0ea5e9
+🖥️ Requisitos
+Node.js 18.x ou superior
+
+npm 9.x ou superior
+
+📄 Licença
+Este projeto está sob a licença MIT.
+
+👨‍💻 Autor
+Vagner Guedes
+
+GitHub: @Vagner-Guedes
+
+Projeto: BarberOs
+
+🙏 Agradecimentos
+React
+
+Vite
+
+Tailwind CSS
+
+Lucide Icons
