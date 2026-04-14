@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { authService } from "../../services/api/authService";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -10,25 +11,26 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     setLoading(true);
 
-    setTimeout(() => {
-      if (email === "admin@barber.com" && password === "123456") {
-        localStorage.setItem("token", "mock-token-123");
+    try {
+      const response = await authService.login(email, password);
+      if (response.token) {
         navigate("/dashboard");
-      } else {
-        setError("Credenciais inválidas. Tente novamente.");
       }
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Erro ao fazer login. Verifique suas credenciais.";
+      setError(errorMessage);
+    } finally {
       setLoading(false);
-    }, 800);
+    }
   }
 
   return (
     <div className="flex min-h-screen bg-zinc-950">
-
       {/* Lado esquerdo — branding */}
       <div className="hidden lg:flex w-1/2 flex-col justify-between bg-zinc-900 border-r border-zinc-800 p-12">
         <div className="flex items-center gap-2.5">
@@ -180,7 +182,7 @@ export default function LoginPage() {
 
           <div className="mt-6 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3">
             <p className="text-zinc-600 text-xs text-center">
-              Teste: <span className="text-zinc-400">admin@barber.com</span> / <span className="text-zinc-400">123456</span>
+              Credenciais para teste: <span className="text-zinc-400">admin@barberos.com</span> / <span className="text-zinc-400">123456</span>
             </p>
           </div>
 

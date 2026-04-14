@@ -1,46 +1,42 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-
-// Dados locais - sem precisar de mock
-const initialClients = [
-  { id: 1, name: "João Silva", initials: "JS", email: "joao@email.com", phone: "(11) 99999-1111", active: true, createdAt: "10/01/2024" },
-  { id: 2, name: "Maria Santos", initials: "MS", email: "maria@email.com", phone: "(11) 99999-2222", active: true, createdAt: "15/02/2024" },
-  { id: 3, name: "Pedro Costa", initials: "PC", email: "pedro@email.com", phone: "(11) 99999-3333", active: false, createdAt: "20/03/2024" },
-];
+import { clientService } from "../../services/api/clientService";
+import type { Client } from "../../services/api/clientService";
 
 type Filter = "todos" | "ativos" | "inativos";
-
-// Interface Client
-interface Client {
-  id: number;
-  name: string;
-  initials: string;
-  email: string;
-  phone: string;
-  active: boolean;
-  createdAt: string;
-}
 
 function getInitialsColor(initials: string) {
   const colors = ["bg-amber-500","bg-violet-500","bg-rose-500","bg-teal-500","bg-sky-500","bg-orange-500","bg-emerald-500","bg-pink-500"];
   return colors[initials.charCodeAt(0) % colors.length];
 }
 
+function formatDate(dateString: string) {
+  return new Date(dateString).toLocaleDateString("pt-BR");
+}
+
+function getInitials(name: string) {
+  return name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
+}
+
 interface ModalProps {
   client?: Client | null;
   onClose: () => void;
-  onSave: (data: Omit<Client, "id" | "createdAt" | "initials" | "active">) => void;
+  onSave: (data: { name: string; email?: string; phone: string }) => void;
+  loading?: boolean;
 }
 
-function ClientModal({ client, onClose, onSave }: ModalProps) {
-  const [name,  setName]  = useState(client?.name  ?? "");
+function ClientModal({ client, onClose, onSave, loading }: ModalProps) {
+  const [name, setName] = useState(client?.name ?? "");
   const [email, setEmail] = useState(client?.email ?? "");
   const [phone, setPhone] = useState(client?.phone ?? "");
   const [error, setError] = useState("");
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !phone.trim()) { setError("Nome e telefone são obrigatórios."); return; }
+    if (!name.trim() || !phone.trim()) {
+      setError("Nome e telefone são obrigatórios.");
+      return;
+    }
     onSave({ name, email, phone });
   }
 
@@ -81,9 +77,9 @@ function ClientModal({ client, onClose, onSave }: ModalProps) {
               className="flex-1 h-10 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 rounded-lg text-sm font-medium transition">
               Cancelar
             </button>
-            <button type="submit"
-              className="flex-1 h-10 bg-amber-500 hover:bg-amber-400 text-zinc-950 rounded-lg text-sm font-semibold transition">
-              {client ? "Salvar alterações" : "Cadastrar"}
+            <button type="submit" disabled={loading}
+              className="flex-1 h-10 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-zinc-950 rounded-lg text-sm font-semibold transition">
+              {loading ? "Salvando..." : (client ? "Salvar alterações" : "Cadastrar")}
             </button>
           </div>
         </form>
@@ -96,9 +92,10 @@ interface DeleteModalProps {
   client: Client;
   onClose: () => void;
   onConfirm: () => void;
+  loading?: boolean;
 }
 
-function DeleteModal({ client, onClose, onConfirm }: DeleteModalProps) {
+function DeleteModal({ client, onClose, onConfirm, loading }: DeleteModalProps) {
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center px-4">
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm p-6">
@@ -116,9 +113,9 @@ function DeleteModal({ client, onClose, onConfirm }: DeleteModalProps) {
             className="flex-1 h-10 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 rounded-lg text-sm font-medium transition">
             Cancelar
           </button>
-          <button onClick={onConfirm}
-            className="flex-1 h-10 bg-red-500 hover:bg-red-400 text-white rounded-lg text-sm font-semibold transition">
-            Remover
+          <button onClick={onConfirm} disabled={loading}
+            className="flex-1 h-10 bg-red-500 hover:bg-red-400 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition">
+            {loading ? "Removendo..." : "Remover"}
           </button>
         </div>
       </div>
@@ -128,52 +125,105 @@ function DeleteModal({ client, onClose, onConfirm }: DeleteModalProps) {
 
 export default function ClientsPage() {
   const navigate = useNavigate();
-  const [clients, setClients]               = useState<Client[]>(initialClients);
-  const [search, setSearch]                 = useState("");
-  const [filter, setFilter]                 = useState<Filter>("todos");
-  const [showModal, setShowModal]           = useState(false);
-  const [editingClient, setEditingClient]   = useState<Client | null>(null);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<Filter>("todos");
+  const [showModal, setShowModal] = useState(false);
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [deletingClient, setDeletingClient] = useState<Client | null>(null);
+  const [modalLoading, setModalLoading] = useState(false);
+
+  useEffect(() => {
+    loadClients();
+  }, []);
+
+  async function loadClients() {
+    try {
+      setLoading(true);
+      const data = await clientService.getAll();
+      setClients(data);
+    } catch (error) {
+      console.error("Erro ao carregar clientes:", error);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const filtered = clients.filter((c) => {
     const matchSearch =
       c.name.toLowerCase().includes(search.toLowerCase()) ||
       c.phone.includes(search) ||
-      c.email.toLowerCase().includes(search.toLowerCase());
+      (c.email && c.email.toLowerCase().includes(search.toLowerCase()));
     const matchFilter =
       filter === "todos" ? true : filter === "ativos" ? c.active : !c.active;
     return matchSearch && matchFilter;
   });
 
-  function handleSave(data: Omit<Client, "id" | "createdAt" | "initials" | "active">) {
-    const initials = data.name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
-    if (editingClient) {
-      setClients((prev) => prev.map((c) => c.id === editingClient.id ? { ...c, ...data, initials } : c));
-    } else {
-      setClients((prev) => [{ id: Date.now(), ...data, initials, createdAt: new Date().toLocaleDateString("pt-BR"), active: true }, ...prev]);
+  async function handleSave(data: { name: string; email?: string; phone: string }) {
+    setModalLoading(true);
+    try {
+      if (editingClient) {
+        await clientService.update(editingClient.id, data);
+      } else {
+        await clientService.create(data);
+      }
+      await loadClients();
+      setShowModal(false);
+      setEditingClient(null);
+    } catch (error) {
+      console.error("Erro ao salvar cliente:", error);
+    } finally {
+      setModalLoading(false);
     }
-    setShowModal(false);
-    setEditingClient(null);
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!deletingClient) return;
-    setClients((prev) => prev.filter((c) => c.id !== deletingClient.id));
-    setDeletingClient(null);
+    setModalLoading(true);
+    try {
+      await clientService.delete(deletingClient.id);
+      await loadClients();
+      setDeletingClient(null);
+    } catch (error) {
+      console.error("Erro ao deletar cliente:", error);
+    } finally {
+      setModalLoading(false);
+    }
   }
 
-  function handleRestore(id: number) {
-    setClients((prev) => prev.map((c) => c.id === id ? { ...c, active: true } : c));
+  async function handleRestore(id: number) {
+    try {
+      await clientService.update(id, { active: true });
+      await loadClients();
+    } catch (error) {
+      console.error("Erro ao restaurar cliente:", error);
+    }
   }
 
-  function openEdit(client: Client) { setEditingClient(client); setShowModal(true); }
-  function openNew()                 { setEditingClient(null);   setShowModal(true); }
+  function openEdit(client: Client) {
+    setEditingClient(client);
+    setShowModal(true);
+  }
+
+  function openNew() {
+    setEditingClient(null);
+    setShowModal(true);
+  }
 
   const counts = {
-    todos:    clients.length,
-    ativos:   clients.filter((c) => c.active).length,
+    todos: clients.length,
+    ativos: clients.filter((c) => c.active).length,
     inativos: clients.filter((c) => !c.active).length,
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-amber-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 sm:p-6 space-y-5 max-w-6xl mx-auto">
@@ -238,8 +288,8 @@ export default function ClientsPage() {
               <div key={client.id}
                 className={`grid grid-cols-12 gap-4 px-5 py-4 hover:bg-zinc-800/30 transition items-center ${!client.active ? "opacity-60" : ""}`}>
                 <div className="col-span-3 flex items-center gap-3 min-w-0">
-                  <div className={`w-9 h-9 ${getInitialsColor(client.initials)} rounded-full flex items-center justify-center shrink-0`}>
-                    <span className="text-white text-xs font-semibold">{client.initials}</span>
+                  <div className={`w-9 h-9 ${getInitialsColor(getInitials(client.name))} rounded-full flex items-center justify-center shrink-0`}>
+                    <span className="text-white text-xs font-semibold">{getInitials(client.name)}</span>
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-white truncate">{client.name}</p>
@@ -255,7 +305,7 @@ export default function ClientsPage() {
                   <p className="text-sm text-zinc-300">{client.phone}</p>
                 </div>
                 <div className="col-span-2">
-                  <p className="text-sm text-zinc-400">{client.createdAt}</p>
+                  <p className="text-sm text-zinc-400">{formatDate(client.createdAt)}</p>
                 </div>
                 <div className="col-span-2 flex items-center justify-end gap-1">
                   <ActionButtons
@@ -283,10 +333,9 @@ export default function ClientsPage() {
             <div key={client.id}
               className={`bg-zinc-900 border border-zinc-800 rounded-xl p-4 ${!client.active ? "opacity-60" : ""}`}>
               <div className="flex items-start justify-between gap-3">
-                {/* Avatar + info */}
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className={`w-10 h-10 ${getInitialsColor(client.initials)} rounded-full flex items-center justify-center shrink-0`}>
-                    <span className="text-white text-sm font-semibold">{client.initials}</span>
+                  <div className={`w-10 h-10 ${getInitialsColor(getInitials(client.name))} rounded-full flex items-center justify-center shrink-0`}>
+                    <span className="text-white text-sm font-semibold">{getInitials(client.name)}</span>
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -298,7 +347,6 @@ export default function ClientsPage() {
                     <p className="text-xs text-zinc-500 truncate mt-0.5">{client.email || "—"}</p>
                   </div>
                 </div>
-                {/* Ações */}
                 <div className="flex items-center gap-1 shrink-0">
                   <ActionButtons
                     client={client}
@@ -309,8 +357,6 @@ export default function ClientsPage() {
                   />
                 </div>
               </div>
-
-              {/* Detalhes */}
               <div className="mt-3 pt-3 border-t border-zinc-800 grid grid-cols-2 gap-2">
                 <div>
                   <p className="text-xs text-zinc-600 mb-0.5">Telefone</p>
@@ -318,7 +364,7 @@ export default function ClientsPage() {
                 </div>
                 <div>
                   <p className="text-xs text-zinc-600 mb-0.5">Cadastrado em</p>
-                  <p className="text-xs text-zinc-300">{client.createdAt}</p>
+                  <p className="text-xs text-zinc-300">{formatDate(client.createdAt)}</p>
                 </div>
               </div>
             </div>
@@ -332,6 +378,7 @@ export default function ClientsPage() {
           client={editingClient}
           onClose={() => { setShowModal(false); setEditingClient(null); }}
           onSave={handleSave}
+          loading={modalLoading}
         />
       )}
       {deletingClient && (
@@ -339,6 +386,7 @@ export default function ClientsPage() {
           client={deletingClient}
           onClose={() => setDeletingClient(null)}
           onConfirm={handleDelete}
+          loading={modalLoading}
         />
       )}
     </div>

@@ -1,40 +1,26 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-
-// Dados locais - sem precisar de mock
-const initialProfessionals = [
-  { id: 1, name: "Carlos Eduardo", initials: "CE", role: "Barbeiro", email: "carlos@barberos.com", phone: "(11) 99999-1111", specialties: ["Corte", "Barba"], active: true, createdAt: "10/01/2024" },
-  { id: 2, name: "Ana Silva", initials: "AS", role: "Cabeleireira", email: "ana@barberos.com", phone: "(11) 99999-2222", specialties: ["Corte Feminino", "Coloração"], active: true, createdAt: "15/02/2024" },
-  { id: 3, name: "Roberto Santos", initials: "RS", role: "Stylist", email: "roberto@barberos.com", phone: "(11) 99999-3333", specialties: ["Corte", "Barba", "Pigmentação"], active: false, createdAt: "20/03/2024" },
-];
+import { useState, useEffect } from "react";
+import { professionalService } from "../../services/api/professionalService";
+import type { Professional } from "../../services/api/professionalService";
 
 type Filter = "todos" | "ativos" | "inativos";
 
-// Interface Professional
-interface Professional {
-  id: number;
-  name: string;
-  initials: string;
-  role: string;
-  email: string;
-  phone: string;
-  specialties: string[];
-  active: boolean;
-  createdAt: string;
+function getInitialsColor(initials: string) {
+  const colors = ["bg-amber-500", "bg-violet-500", "bg-rose-500", "bg-teal-500", "bg-sky-500", "bg-orange-500", "bg-emerald-500", "bg-pink-500"];
+  return colors[initials.charCodeAt(0) % colors.length];
 }
 
-function getInitialsColor(initials: string) {
-  const colors = ["bg-amber-500","bg-violet-500","bg-rose-500","bg-teal-500","bg-sky-500","bg-orange-500","bg-emerald-500","bg-pink-500"];
-  return colors[initials.charCodeAt(0) % colors.length];
+function getInitials(name: string) {
+  return name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
 }
 
 interface ModalProps {
   professional?: Professional | null;
   onClose: () => void;
-  onSave: (data: Omit<Professional, "id" | "createdAt" | "initials" | "active">) => void;
+  onSave: (data: { name: string; email?: string; phone: string; role: string; specialties: string[] }) => void;
+  loading?: boolean;
 }
 
-function ProfessionalModal({ professional, onClose, onSave }: ModalProps) {
+function ProfessionalModal({ professional, onClose, onSave, loading }: ModalProps) {
   const [name, setName] = useState(professional?.name ?? "");
   const [email, setEmail] = useState(professional?.email ?? "");
   const [phone, setPhone] = useState(professional?.phone ?? "");
@@ -106,9 +92,9 @@ function ProfessionalModal({ professional, onClose, onSave }: ModalProps) {
               className="flex-1 h-10 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 rounded-lg text-sm font-medium transition">
               Cancelar
             </button>
-            <button type="submit"
-              className="flex-1 h-10 bg-amber-500 hover:bg-amber-400 text-zinc-950 rounded-lg text-sm font-semibold transition">
-              {professional ? "Salvar alterações" : "Cadastrar"}
+            <button type="submit" disabled={loading}
+              className="flex-1 h-10 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-zinc-950 rounded-lg text-sm font-semibold transition">
+              {loading ? "Salvando..." : (professional ? "Salvar alterações" : "Cadastrar")}
             </button>
           </div>
         </form>
@@ -121,9 +107,10 @@ interface DeleteModalProps {
   professional: Professional;
   onClose: () => void;
   onConfirm: () => void;
+  loading?: boolean;
 }
 
-function DeleteModal({ professional, onClose, onConfirm }: DeleteModalProps) {
+function DeleteModal({ professional, onClose, onConfirm, loading }: DeleteModalProps) {
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center px-4">
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm p-6">
@@ -141,9 +128,9 @@ function DeleteModal({ professional, onClose, onConfirm }: DeleteModalProps) {
             className="flex-1 h-10 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 rounded-lg text-sm font-medium transition">
             Cancelar
           </button>
-          <button onClick={onConfirm}
-            className="flex-1 h-10 bg-red-500 hover:bg-red-400 text-white rounded-lg text-sm font-semibold transition">
-            Remover
+          <button onClick={onConfirm} disabled={loading}
+            className="flex-1 h-10 bg-red-500 hover:bg-red-400 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition">
+            {loading ? "Removendo..." : "Remover"}
           </button>
         </div>
       </div>
@@ -152,59 +139,88 @@ function DeleteModal({ professional, onClose, onConfirm }: DeleteModalProps) {
 }
 
 export default function ProfessionalsPage() {
-  const navigate = useNavigate();
-  const [professionals, setProfessionals] = useState<Professional[]>(initialProfessionals);
+  const [professionals, setProfessionals] = useState<Professional[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("todos");
   const [showModal, setShowModal] = useState(false);
   const [editingProfessional, setEditingProfessional] = useState<Professional | null>(null);
   const [deletingProfessional, setDeletingProfessional] = useState<Professional | null>(null);
+  const [modalLoading, setModalLoading] = useState(false);
+
+  useEffect(() => {
+    loadProfessionals();
+  }, []);
+
+  async function loadProfessionals() {
+    try {
+      setLoading(true);
+      const data = await professionalService.getAll();
+      setProfessionals(data);
+    } catch (error) {
+      console.error("Erro ao carregar profissionais:", error);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const filtered = professionals.filter((p) => {
     const matchSearch =
       p.name.toLowerCase().includes(search.toLowerCase()) ||
       p.phone.includes(search) ||
-      p.email.toLowerCase().includes(search.toLowerCase()) ||
+      (p.email && p.email.toLowerCase().includes(search.toLowerCase())) ||
       p.role.toLowerCase().includes(search.toLowerCase());
     const matchFilter =
       filter === "todos" ? true : filter === "ativos" ? p.active : !p.active;
     return matchSearch && matchFilter;
   });
 
-  function handleSave(data: Omit<Professional, "id" | "createdAt" | "initials" | "active">) {
-    const initials = data.name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
-    if (editingProfessional) {
-      setProfessionals((prev) => prev.map((p) => 
-        p.id === editingProfessional.id ? { ...p, ...data, initials } : p
-      ));
-    } else {
-      setProfessionals((prev) => [{
-        id: Date.now(),
-        ...data,
-        initials,
-        createdAt: new Date().toLocaleDateString("pt-BR"),
-        active: true
-      }, ...prev]);
+  async function handleSave(data: { name: string; email?: string; phone: string; role: string; specialties: string[] }) {
+    setModalLoading(true);
+    try {
+      if (editingProfessional) {
+        await professionalService.update(editingProfessional.id, data);
+      } else {
+        await professionalService.create(data);
+      }
+      await loadProfessionals();
+      setShowModal(false);
+      setEditingProfessional(null);
+    } catch (error) {
+      console.error("Erro ao salvar profissional:", error);
+    } finally {
+      setModalLoading(false);
     }
-    setShowModal(false);
-    setEditingProfessional(null);
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!deletingProfessional) return;
-    setProfessionals((prev) => prev.filter((p) => p.id !== deletingProfessional.id));
-    setDeletingProfessional(null);
+    setModalLoading(true);
+    try {
+      await professionalService.delete(deletingProfessional.id);
+      await loadProfessionals();
+      setDeletingProfessional(null);
+    } catch (error) {
+      console.error("Erro ao deletar profissional:", error);
+    } finally {
+      setModalLoading(false);
+    }
   }
 
-  function handleRestore(id: number) {
-    setProfessionals((prev) => prev.map((p) => p.id === id ? { ...p, active: true } : p));
+  async function handleRestore(id: number) {
+    try {
+      await professionalService.update(id, { active: true });
+      await loadProfessionals();
+    } catch (error) {
+      console.error("Erro ao restaurar profissional:", error);
+    }
   }
 
   function openEdit(professional: Professional) {
     setEditingProfessional(professional);
     setShowModal(true);
   }
-  
+
   function openNew() {
     setEditingProfessional(null);
     setShowModal(true);
@@ -216,10 +232,17 @@ export default function ProfessionalsPage() {
     inativos: professionals.filter((p) => !p.active).length,
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-amber-500"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-6 max-w-6xl mx-auto">
 
-      {/* Cabeçalho */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-semibold text-white">Profissionais</h1>
@@ -236,7 +259,6 @@ export default function ProfessionalsPage() {
         </button>
       </div>
 
-      {/* Busca + Filtros */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -261,99 +283,34 @@ export default function ProfessionalsPage() {
         </div>
       </div>
 
-      {/* Cards de Profissionais */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.length === 0 ? (
           <div className="col-span-full bg-zinc-900 border border-zinc-800 rounded-xl px-5 py-12 text-center">
-            <svg className="w-10 h-10 text-zinc-700 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
             <p className="text-zinc-500 text-sm">Nenhum profissional encontrado</p>
           </div>
         ) : (
           filtered.map((professional) => (
-            <div key={professional.id}
-              className={`bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden hover:border-zinc-700 transition ${
-                !professional.active ? "opacity-60" : ""
-              }`}>
-              
-              {/* Header do Card */}
-              <div className="p-4 border-b border-zinc-800">
-                <div className="flex items-center gap-3">
-                  <div className={`w-12 h-12 ${getInitialsColor(professional.initials)} rounded-full flex items-center justify-center`}>
-                    <span className="text-white font-semibold text-sm">{professional.initials}</span>
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-white font-semibold">{professional.name}</h3>
-                      {!professional.active && (
-                        <span className="text-xs bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded">Inativo</span>
-                      )}
-                    </div>
-                    <p className="text-amber-400 text-sm">{professional.role}</p>
-                    {professional.active && (
-                      <span className="inline-block text-xs bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded mt-1">
-                        Ativo
-                      </span>
-                    )}
-                  </div>
+            <div key={professional.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+              <div className="flex items-center gap-3">
+                <div className={`w-12 h-12 ${getInitialsColor(getInitials(professional.name))} rounded-full flex items-center justify-center`}>
+                  <span className="text-white font-semibold text-sm">{getInitials(professional.name)}</span>
+                </div>
+                <div>
+                  <h3 className="text-white font-semibold">{professional.name}</h3>
+                  <p className="text-amber-400 text-sm">{professional.role}</p>
                 </div>
               </div>
-
-              {/* Especialidades */}
-              <div className="p-4 border-b border-zinc-800">
-                <div className="flex flex-wrap gap-1.5">
-                  {professional.specialties.map((specialty, idx) => (
-                    <span key={idx} className="text-xs bg-zinc-800 text-zinc-300 px-2 py-1 rounded">
-                      {specialty}
-                    </span>
-                  ))}
-                </div>
+              <div className="mt-3 flex flex-wrap gap-1">
+                {professional.specialties.map((s, i) => (
+                  <span key={i} className="text-xs bg-zinc-800 text-zinc-300 px-2 py-1 rounded">{s}</span>
+                ))}
               </div>
-
-              {/* Ações */}
-              <div className="p-4 flex gap-2">
-                <button 
-                  onClick={() => navigate(`/professionals/${professional.id}`)}
-                  className="flex-1 px-3 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  </svg>
-                  Ver agenda
-                </button>
-                
-                <button 
-                  onClick={() => openEdit(professional)}
-                  className="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-zinc-300 transition"
-                  title="Editar"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                </button>
-
+              <div className="mt-4 flex gap-2">
+                <button onClick={() => openEdit(professional)} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white py-2 rounded-lg text-sm">Editar</button>
                 {!professional.active ? (
-                  <button 
-                    onClick={() => handleRestore(professional.id)}
-                    className="px-3 py-2 bg-zinc-800 hover:bg-emerald-500/20 rounded-lg text-zinc-300 hover:text-emerald-400 transition"
-                    title="Restaurar"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                  </button>
+                  <button onClick={() => handleRestore(professional.id)} className="flex-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 py-2 rounded-lg text-sm">Restaurar</button>
                 ) : (
-                  <button 
-                    onClick={() => setDeletingProfessional(professional)}
-                    className="px-3 py-2 bg-zinc-800 hover:bg-red-500/20 rounded-lg text-zinc-300 hover:text-red-400 transition"
-                    title="Remover"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
+                  <button onClick={() => setDeletingProfessional(professional)} className="flex-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 py-2 rounded-lg text-sm">Excluir</button>
                 )}
               </div>
             </div>
@@ -361,12 +318,12 @@ export default function ProfessionalsPage() {
         )}
       </div>
 
-      {/* Modais */}
       {showModal && (
         <ProfessionalModal
           professional={editingProfessional}
           onClose={() => { setShowModal(false); setEditingProfessional(null); }}
           onSave={handleSave}
+          loading={modalLoading}
         />
       )}
       {deletingProfessional && (
@@ -374,6 +331,7 @@ export default function ProfessionalsPage() {
           professional={deletingProfessional}
           onClose={() => setDeletingProfessional(null)}
           onConfirm={handleDelete}
+          loading={modalLoading}
         />
       )}
     </div>
