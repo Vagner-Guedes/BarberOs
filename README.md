@@ -2,32 +2,37 @@
 
 Sistema moderno e completo para gestão de barbearias, desenvolvido com React, TypeScript e Tailwind CSS. Permite o gerenciamento de clientes, profissionais, agendamentos e serviços.
 
+---
+
 ## ✨ Demonstração
 
 🔗 **Acesse o projeto:** [https://vagner-guedes.github.io/BarberOs/](https://vagner-guedes.github.io/BarberOs/)
 
+---
+
 ## 🚀 Tecnologias
 
 ### Frontend
-| Tecnologia | Versão | Descrição |
-|------------|--------|------------|
-| React | 19.x | Biblioteca principal para UI |
-| TypeScript | 6.x | Tipagem estática |
-| Vite | 8.x | Build tool e dev server |
-| Tailwind CSS | 3.x | Framework de CSS utilitário |
-| React Router DOM | 7.x | Navegação entre rotas |
-| React Hook Form | 7.x | Gerenciamento de formulários |
-| Zod | 4.x | Validação de schemas |
-| Axios | 1.x | Cliente HTTP |
-| Lucide React | 1.x | Biblioteca de ícones |
 
-### UI Components
-- **@radix-ui/react-label** - Labels acessíveis
-- **@radix-ui/react-slot** - Composición de componentes
-- **class-variance-authority** - Variantes de classes
-- **clsx** - Utilitário para classes condicionais
-- **tailwind-merge** - Merge de classes Tailwind
-- **sonner** - Toast notifications
+* **React (19.x)** – Construção da interface
+* **TypeScript (6.x)** – Tipagem estática
+* **Vite (8.x)** – Build tool e dev server
+* **Tailwind CSS (3.x)** – Estilização utilitária
+* **React Router DOM (7.x)** – Roteamento
+* **React Hook Form (7.x)** – Formulários
+* **Zod (4.x)** – Validação de dados
+* **Axios (1.x)** – Requisições HTTP
+* **Lucide React** – Ícones
+
+### UI e Utilitários
+
+* Radix UI
+* class-variance-authority
+* clsx
+* tailwind-merge
+* sonner (notificações)
+
+---
 
 ## 📦 Instalação
 
@@ -41,121 +46,114 @@ cd BarberOs
 # Instale as dependências
 npm install
 
-# Execute em desenvolvimento
+# Execute o projeto
 npm run dev
+```
 
-🌐 Acessar
-Ambiente	URL
-Local	http://localhost:5173
-Produção	https://vagner-guedes.github.io/BarberOs
-📁 Estrutura do Projeto
-text
+---
+
+## 🌐 Acesso
+
+| Ambiente | URL                                                                                  |
+| -------- | ------------------------------------------------------------------------------------ |
+| Local    | [http://localhost:5173](http://localhost:5173)                                       |
+| Produção | [https://vagner-guedes.github.io/BarberOs](https://vagner-guedes.github.io/BarberOs) |
+
+---
+
+## 📁 Estrutura do Projeto
+
+```
 BarberOs/
 ├── src/
-│   ├── components/          # Componentes reutilizáveis
-│   ├── contexts/            # Contextos React
-│   ├── hooks/               # Hooks customizados
-│   ├── layouts/             # Layouts da aplicação
-│   │   └── AppLayout.tsx    # Layout principal com menu
-│   ├── lib/                 # Utilitários e helpers
-│   ├── mocks/               # Dados mockados
-│   ├── pages/               # Páginas da aplicação
-│   │   ├── appointments/    # Agendamentos
-│   │   ├── auth/            # Autenticação
-│   │   │   └── LoginPage.tsx
-│   │   ├── clients/         # Clientes
-│   │   │   └── ClientsPage.tsx
-│   │   ├── dashboard/       # Dashboard
-│   │   │   └── DashboardPage.tsx
-│   │   ├── professionals/   # Profissionais
-│   │   │   └── ProfessionalsPage.tsx
-│   │   ├── services/        # Serviços
-│   │   │   └── ServicesPage.tsx
-│   │   └── settings/        # Configurações
-│   │       └── SettingsPage.tsx
-│   ├── routes/              # Configuração de rotas
-│   │   └── index.tsx
-│   ├── App.tsx              # Componente principal
-│   ├── main.tsx             # Entry point
-│   └── index.css            # Estilos do Tailwind
-├── public/                  # Arquivos estáticos
+│   ├── components/
+│   ├── contexts/
+│   ├── hooks/
+│   ├── layouts/
+│   ├── lib/
+│   ├── mocks/
+│   ├── pages/
+│   ├── routes/
+│   ├── App.tsx
+│   ├── main.tsx
+│   └── index.css
+├── public/
 ├── index.html
-├── package.json
-├── postcss.config.js
-├── tailwind.config.js
-├── tsconfig.json
 ├── vite.config.ts
-└── README.md
-🛠️ Scripts Disponíveis
-Comando	Descrição
-npm run dev	Inicia o servidor de desenvolvimento
-npm run build	Gera o build de produção
-npm run preview	Visualiza o build localmente
-npm run deploy	Publica no GitHub Pages
-npm run lint	Executa o ESLint
-📱 Funcionalidades
-✅ Implementadas
-✅ Dashboard com métricas e cards informativos
+└── package.json
+```
 
-✅ CRUD completo de Clientes (criar, editar, listar, remover, ativar/inativar)
+---
 
-✅ CRUD completo de Profissionais (criar, editar, listar, remover, ativar/inativar)
+## 🛠️ Scripts Disponíveis
 
-✅ Busca e filtros por nome, email, telefone
+| Comando         | Descrição                            |
+| --------------- | ------------------------------------ |
+| npm run dev     | Inicia o servidor de desenvolvimento |
+| npm run build   | Gera o build de produção             |
+| npm run preview | Visualiza o build local              |
+| npm run deploy  | Publica no GitHub Pages              |
+| npm run lint    | Executa o ESLint                     |
 
-✅ Layout responsivo (Desktop e Mobile)
+---
 
-✅ Tema escuro consistente
+## 📱 Funcionalidades
 
-✅ Menu lateral com navegação
+### ✅ Implementadas
 
-✅ Formulários com validação
+* Dashboard com métricas
+* CRUD completo de clientes
+* CRUD completo de profissionais
+* Busca e filtros
+* Layout responsivo
+* Tema escuro
+* Navegação lateral
+* Validação de formulários
+* Modais de criação/edição
 
-✅ Modais para criação/edição
+### 🔄 Em desenvolvimento
 
-✅ Deploy automatizado no GitHub Pages
+* Agendamentos (calendário)
+* Serviços com preços
+* Autenticação (JWT)
+* Integração com API
+* Relatórios e gráficos
 
-🔄 Em desenvolvimento
-🔄 Agendamentos (calendário)
+---
 
-🔄 Serviços com preços
+## 🎨 Paleta de Cores
 
-🔄 Configurações da barbearia
+| Cor     | Uso         | Código  |
+| ------- | ----------- | ------- |
+| Amber   | Primária    | #f59e0b |
+| Zinc    | Fundo       | #18181b |
+| Emerald | Sucesso     | #10b981 |
+| Violet  | Secundária  | #8b5cf6 |
+| Rose    | Alerta      | #f43f5e |
+| Sky     | Informações | #0ea5e9 |
 
-🔄 Autenticação completa (JWT)
+---
 
-🔄 Integração com backend API
+## 🖥️ Requisitos
 
-🔄 Relatórios e gráficos
+* Node.js 18+
+* npm 9+
 
-🎨 Paleta de Cores
-Cor	Uso	Código
-Amber	Primária, botões, destaques	#f59e0b
-Zinc	Fundo principal	#18181b
-Emerald	Status ativo, sucesso	#10b981
-Violet	Destaques secundários	#8b5cf6
-Rose	Alertas, destaques	#f43f5e
-Sky	Informações	#0ea5e9
-🖥️ Requisitos
-Node.js 18.x ou superior
+---
 
-npm 9.x ou superior
+## 📄 Licença
 
-📄 Licença
-Este projeto está sob a licença MIT.
+MIT
 
-👨‍💻 Autor
-Vagner Guedes
+---
 
-GitHub: @Vagner-Guedes
+## 👨‍💻 Autor
 
-Projeto: BarberOs
+**Vagner Guedes**
+[https://github.com/Vagner-Guedes](https://github.com/Vagner-Guedes)
 
-🙏 Agradecimentos
-React
+---
 
-Vite
+## 📌 Observações
 
-Tailwind CSS
-
-Lucide Icons
+Este projeto está em evolução e novas funcionalidades serão adicionadas progressivamente.
