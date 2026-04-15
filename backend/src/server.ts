@@ -5,6 +5,9 @@ import dotenv from 'dotenv';
 import authRoutes from './routes/authRoutes';
 import clientRoutes from './routes/clientRoutes';
 import professionalRoutes from './routes/professionalRoutes';
+import serviceRoutes from './routes/serviceRoutes';
+import appointmentRoutes from './routes/appointmentRoutes';
+import dashboardRoutes from './routes/dashboardRoutes';
 
 dotenv.config();
 
@@ -18,13 +21,15 @@ app.use(express.json());
 app.use('/auth', authRoutes);
 app.use('/clients', clientRoutes);
 app.use('/professionals', professionalRoutes);
+app.use('/services', serviceRoutes);
+app.use('/appointments', appointmentRoutes);
+app.use('/dashboard', dashboardRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', message: 'BarberOs API is running!' });
 });
 
-// Rota inicial
 app.get('/', (req, res) => {
   res.json({ message: 'Welcome to BarberOs API' });
 });

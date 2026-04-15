@@ -1,21 +1,6 @@
-import { useState } from "react";
-
-interface Service {
-  id: number;
-  name: string;
-  duration: number;
-  price: number;
-  active: boolean;
-}
-
-const mockServices: Service[] = [
-  { id: 1, name: "Corte Masculino",   duration: 30, price: 35,  active: true  },
-  { id: 2, name: "Barba",             duration: 20, price: 25,  active: true  },
-  { id: 3, name: "Corte + Barba",     duration: 50, price: 55,  active: true  },
-  { id: 4, name: "Corte Degradê",     duration: 40, price: 45,  active: true  },
-  { id: 5, name: "Hidratação Capilar",duration: 30, price: 40,  active: true  },
-  { id: 6, name: "Coloração",         duration: 90, price: 120, active: false },
-];
+import { useState, useEffect } from "react";
+import { serviceService } from "../../services/api/serviceService";
+import type { Service } from "../../services/api/serviceService";
 
 function formatDuration(minutes: number) {
   if (minutes < 60) return `${minutes} min`;
@@ -33,20 +18,21 @@ type Filter = "todos" | "ativos" | "inativos";
 interface ModalProps {
   service?: Service | null;
   onClose: () => void;
-  onSave: (data: Omit<Service, "id" | "active">) => void;
+  onSave: (data: Omit<Service, "id" | "active" | "createdAt" | "updatedAt">) => void;
+  loading?: boolean;
 }
 
-function ServiceModal({ service, onClose, onSave }: ModalProps) {
-  const [name,     setName]     = useState(service?.name     ?? "");
+function ServiceModal({ service, onClose, onSave, loading }: ModalProps) {
+  const [name, setName] = useState(service?.name ?? "");
   const [duration, setDuration] = useState(service?.duration ?? 30);
-  const [price,    setPrice]    = useState(service?.price    ?? 0);
-  const [error,    setError]    = useState("");
+  const [price, setPrice] = useState(service?.price ?? 0);
+  const [error, setError] = useState("");
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim())  { setError("Nome é obrigatório.");           return; }
+    if (!name.trim()) { setError("Nome é obrigatório."); return; }
     if (duration <= 0) { setError("Duração deve ser maior que 0."); return; }
-    if (price < 0)     { setError("Preço não pode ser negativo.");  return; }
+    if (price < 0) { setError("Preço não pode ser negativo."); return; }
     onSave({ name, duration, price });
   }
 
@@ -112,9 +98,9 @@ function ServiceModal({ service, onClose, onSave }: ModalProps) {
               className="flex-1 h-10 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 rounded-lg text-sm font-medium transition">
               Cancelar
             </button>
-            <button type="submit"
-              className="flex-1 h-10 bg-amber-500 hover:bg-amber-400 text-zinc-950 rounded-lg text-sm font-semibold transition">
-              {service ? "Salvar alterações" : "Cadastrar"}
+            <button type="submit" disabled={loading}
+              className="flex-1 h-10 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-zinc-950 rounded-lg text-sm font-semibold transition">
+              {loading ? "Salvando..." : (service ? "Salvar alterações" : "Cadastrar")}
             </button>
           </div>
         </form>
@@ -127,9 +113,10 @@ interface DeleteModalProps {
   service: Service;
   onClose: () => void;
   onConfirm: () => void;
+  loading?: boolean;
 }
 
-function DeleteModal({ service, onClose, onConfirm }: DeleteModalProps) {
+function DeleteModal({ service, onClose, onConfirm, loading }: DeleteModalProps) {
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center px-4">
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm p-6">
@@ -148,9 +135,9 @@ function DeleteModal({ service, onClose, onConfirm }: DeleteModalProps) {
             className="flex-1 h-10 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 rounded-lg text-sm font-medium transition">
             Cancelar
           </button>
-          <button onClick={onConfirm}
-            className="flex-1 h-10 bg-red-500 hover:bg-red-400 text-white rounded-lg text-sm font-semibold transition">
-            Remover
+          <button onClick={onConfirm} disabled={loading}
+            className="flex-1 h-10 bg-red-500 hover:bg-red-400 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition">
+            {loading ? "Removendo..." : "Remover"}
           </button>
         </div>
       </div>
@@ -159,12 +146,30 @@ function DeleteModal({ service, onClose, onConfirm }: DeleteModalProps) {
 }
 
 export default function ServicesPage() {
-  const [services,        setServices]        = useState<Service[]>(mockServices);
-  const [search,          setSearch]          = useState("");
-  const [filter,          setFilter]          = useState<Filter>("todos");
-  const [showModal,       setShowModal]       = useState(false);
-  const [editingService,  setEditingService]  = useState<Service | null>(null);
+  const [services, setServices] = useState<Service[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<Filter>("todos");
+  const [showModal, setShowModal] = useState(false);
+  const [editingService, setEditingService] = useState<Service | null>(null);
   const [deletingService, setDeletingService] = useState<Service | null>(null);
+  const [modalLoading, setModalLoading] = useState(false);
+
+  useEffect(() => {
+    loadServices();
+  }, []);
+
+  async function loadServices() {
+    try {
+      setLoading(true);
+      const data = await serviceService.getAll();
+      setServices(data);
+    } catch (error) {
+      console.error("Erro ao carregar serviços:", error);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const filtered = services.filter((s) => {
     const matchSearch = s.name.toLowerCase().includes(search.toLowerCase());
@@ -173,33 +178,72 @@ export default function ServicesPage() {
   });
 
   const counts = {
-    todos:    services.length,
-    ativos:   services.filter((s) => s.active).length,
+    todos: services.length,
+    ativos: services.filter((s) => s.active).length,
     inativos: services.filter((s) => !s.active).length,
   };
 
-  function handleSave(data: Omit<Service, "id" | "active">) {
-    if (editingService) {
-      setServices((prev) => prev.map((s) => s.id === editingService.id ? { ...s, ...data } : s));
-    } else {
-      setServices((prev) => [{ id: Date.now(), ...data, active: true }, ...prev]);
+  async function handleSave(data: Omit<Service, "id" | "active" | "createdAt" | "updatedAt">) {
+    setModalLoading(true);
+    try {
+      if (editingService) {
+        await serviceService.update(editingService.id, data);
+      } else {
+        await serviceService.create(data);
+      }
+      await loadServices();
+      setShowModal(false);
+      setEditingService(null);
+    } catch (error) {
+      console.error("Erro ao salvar serviço:", error);
+    } finally {
+      setModalLoading(false);
     }
-    setShowModal(false);
-    setEditingService(null);
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!deletingService) return;
-    setServices((prev) => prev.filter((s) => s.id !== deletingService.id));
-    setDeletingService(null);
+    setModalLoading(true);
+    try {
+      await serviceService.delete(deletingService.id);
+      await loadServices();
+      setDeletingService(null);
+    } catch (error) {
+      console.error("Erro ao deletar serviço:", error);
+    } finally {
+      setModalLoading(false);
+    }
   }
 
-  function handleToggleActive(id: number) {
-    setServices((prev) => prev.map((s) => s.id === id ? { ...s, active: !s.active } : s));
+  async function handleToggleActive(id: number) {
+    const service = services.find(s => s.id === id);
+    if (service) {
+      try {
+        await serviceService.update(id, { active: !service.active });
+        await loadServices();
+      } catch (error) {
+        console.error("Erro ao alternar status:", error);
+      }
+    }
   }
 
-  function openEdit(service: Service) { setEditingService(service); setShowModal(true); }
-  function openNew()                   { setEditingService(null);    setShowModal(true); }
+  function openEdit(service: Service) {
+    setEditingService(service);
+    setShowModal(true);
+  }
+
+  function openNew() {
+    setEditingService(null);
+    setShowModal(true);
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-amber-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6 max-w-6xl mx-auto">
@@ -332,6 +376,7 @@ export default function ServicesPage() {
           service={editingService}
           onClose={() => { setShowModal(false); setEditingService(null); }}
           onSave={handleSave}
+          loading={modalLoading}
         />
       )}
       {deletingService && (
@@ -339,6 +384,7 @@ export default function ServicesPage() {
           service={deletingService}
           onClose={() => setDeletingService(null)}
           onConfirm={handleDelete}
+          loading={modalLoading}
         />
       )}
     </div>
