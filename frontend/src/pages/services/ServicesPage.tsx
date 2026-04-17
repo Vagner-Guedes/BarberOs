@@ -1,6 +1,10 @@
 import { useState, useEffect } from "react";
 import { serviceService } from "../../services/api/serviceService";
 import type { Service } from "../../services/api/serviceService";
+import { toast } from "sonner";
+import type { AxiosError } from "axios";
+
+type Filter = "todos" | "ativos" | "inativos";
 
 function formatDuration(minutes: number) {
   if (minutes < 60) return `${minutes} min`;
@@ -13,95 +17,46 @@ function formatPrice(value: number) {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-type Filter = "todos" | "ativos" | "inativos";
-
 interface ModalProps {
   service?: Service | null;
   onClose: () => void;
-  onSave: (data: Omit<Service, "id" | "active" | "createdAt" | "updatedAt">) => void;
+  onSave: (data: { name: string; description?: string; duration: number; price: number }) => void;
   loading?: boolean;
 }
 
 function ServiceModal({ service, onClose, onSave, loading }: ModalProps) {
   const [name, setName] = useState(service?.name ?? "");
-  const [duration, setDuration] = useState(service?.duration ?? 30);
-  const [price, setPrice] = useState(service?.price ?? 0);
+  const [description, setDescription] = useState(service?.description ?? "");
+  const [duration, setDuration] = useState(service?.duration?.toString() ?? "30");
+  const [price, setPrice] = useState(service?.price?.toString() ?? "");
   const [error, setError] = useState("");
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) { setError("Nome é obrigatório."); return; }
-    if (duration <= 0) { setError("Duração deve ser maior que 0."); return; }
-    if (price < 0) { setError("Preço não pode ser negativo."); return; }
-    onSave({ name, duration, price });
+    if (parseInt(duration) <= 0) { setError("Duração deve ser maior que 0."); return; }
+    if (parseFloat(price) < 0) { setError("Preço não pode ser negativo."); return; }
+    onSave({ name, description: description || undefined, duration: parseInt(duration), price: parseFloat(price) });
   }
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center px-4">
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md">
         <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-800">
-          <h2 className="text-white font-semibold">
-            {service ? "Editar serviço" : "Novo serviço"}
-          </h2>
-          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300 transition">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <h2 className="text-white font-semibold">{service ? "Editar serviço" : "Novo serviço"}</h2>
+          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300 transition"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
         </div>
-
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          <div className="space-y-1.5">
-            <label className="block text-sm text-zinc-400">Nome do serviço</label>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Ex: Corte Masculino"
-              className="w-full h-10 bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-600 rounded-lg px-4 text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition"
-            />
-          </div>
-
+          <div><label className="block text-sm text-zinc-400">Nome</label><input value={name} onChange={(e) => setName(e.target.value)} className="w-full h-10 bg-zinc-800 border border-zinc-700 text-white rounded-lg px-4" /></div>
+          <div><label className="block text-sm text-zinc-400">Descrição</label><textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-4 py-2" /></div>
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="block text-sm text-zinc-400">Duração (minutos)</label>
-              <input
-                type="number"
-                min={1}
-                value={duration}
-                onChange={(e) => setDuration(Number(e.target.value))}
-                placeholder="30"
-                className="w-full h-10 bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-600 rounded-lg px-4 text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="block text-sm text-zinc-400">Preço (R$)</label>
-              <input
-                type="number"
-                min={0}
-                step={0.01}
-                value={price}
-                onChange={(e) => setPrice(Number(e.target.value))}
-                placeholder="0,00"
-                className="w-full h-10 bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-600 rounded-lg px-4 text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition"
-              />
-            </div>
+            <div><label className="block text-sm text-zinc-400">Duração (min)</label><input type="number" value={duration} onChange={(e) => setDuration(e.target.value)} className="w-full h-10 bg-zinc-800 border border-zinc-700 text-white rounded-lg px-4" /></div>
+            <div><label className="block text-sm text-zinc-400">Preço (R$)</label><input type="number" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} className="w-full h-10 bg-zinc-800 border border-zinc-700 text-white rounded-lg px-4" /></div>
           </div>
-
-          {error && (
-            <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2.5">
-              <p className="text-red-400 text-sm">{error}</p>
-            </div>
-          )}
-
+          {error && <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2.5"><p className="text-red-400 text-sm">{error}</p></div>}
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose}
-              className="flex-1 h-10 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 rounded-lg text-sm font-medium transition">
-              Cancelar
-            </button>
-            <button type="submit" disabled={loading}
-              className="flex-1 h-10 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-zinc-950 rounded-lg text-sm font-semibold transition">
-              {loading ? "Salvando..." : (service ? "Salvar alterações" : "Cadastrar")}
-            </button>
+            <button type="button" onClick={onClose} className="flex-1 h-10 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 rounded-lg">Cancelar</button>
+            <button type="submit" disabled={loading} className="flex-1 h-10 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-zinc-950 rounded-lg font-semibold">{loading ? "Salvando..." : (service ? "Salvar" : "Cadastrar")}</button>
           </div>
         </form>
       </div>
@@ -120,25 +75,12 @@ function DeleteModal({ service, onClose, onConfirm, loading }: DeleteModalProps)
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center px-4">
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm p-6">
-        <div className="flex items-center justify-center w-12 h-12 bg-red-500/10 rounded-full mx-auto mb-4">
-          <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-        </div>
+        <div className="flex items-center justify-center w-12 h-12 bg-red-500/10 rounded-full mx-auto mb-4"><svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg></div>
         <h3 className="text-white font-semibold text-center mb-1">Remover serviço</h3>
-        <p className="text-zinc-500 text-sm text-center mb-6">
-          Tem certeza que deseja remover{" "}
-          <span className="text-zinc-300 font-medium">{service.name}</span>?
-        </p>
+        <p className="text-zinc-500 text-sm text-center mb-6">Tem certeza que deseja remover <span className="text-zinc-300 font-medium">{service.name}</span>?</p>
         <div className="flex gap-3">
-          <button onClick={onClose}
-            className="flex-1 h-10 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 rounded-lg text-sm font-medium transition">
-            Cancelar
-          </button>
-          <button onClick={onConfirm} disabled={loading}
-            className="flex-1 h-10 bg-red-500 hover:bg-red-400 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition">
-            {loading ? "Removendo..." : "Remover"}
-          </button>
+          <button onClick={onClose} className="flex-1 h-10 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 rounded-lg">Cancelar</button>
+          <button onClick={onConfirm} disabled={loading} className="flex-1 h-10 bg-red-500 hover:bg-red-400 disabled:opacity-50 text-white rounded-lg font-semibold">{loading ? "Removendo..." : "Remover"}</button>
         </div>
       </div>
     </div>
@@ -155,47 +97,43 @@ export default function ServicesPage() {
   const [deletingService, setDeletingService] = useState<Service | null>(null);
   const [modalLoading, setModalLoading] = useState(false);
 
-  useEffect(() => {
-    loadServices();
-  }, []);
+  useEffect(() => { loadServices(); }, []);
 
   async function loadServices() {
     try {
       setLoading(true);
       const data = await serviceService.getAll();
       setServices(data);
-    } catch (error) {
-      console.error("Erro ao carregar serviços:", error);
+    } catch (err: unknown) {
+      console.error("Erro ao carregar serviços:", err);
+      toast.error("Erro ao carregar serviços");
     } finally {
       setLoading(false);
     }
   }
 
-  const filtered = services.filter((s) => {
-    const matchSearch = s.name.toLowerCase().includes(search.toLowerCase());
+  const filtered = services.filter(s => {
+    const match = s.name.toLowerCase().includes(search.toLowerCase()) || (s.description && s.description.toLowerCase().includes(search.toLowerCase()));
     const matchFilter = filter === "todos" ? true : filter === "ativos" ? s.active : !s.active;
-    return matchSearch && matchFilter;
+    return match && matchFilter;
   });
 
-  const counts = {
-    todos: services.length,
-    ativos: services.filter((s) => s.active).length,
-    inativos: services.filter((s) => !s.active).length,
-  };
-
-  async function handleSave(data: Omit<Service, "id" | "active" | "createdAt" | "updatedAt">) {
+  async function handleSave(data: { name: string; description?: string; duration: number; price: number }) {
     setModalLoading(true);
     try {
       if (editingService) {
         await serviceService.update(editingService.id, data);
+        toast.success("Serviço atualizado!");
       } else {
         await serviceService.create(data);
+        toast.success("Serviço cadastrado!");
       }
       await loadServices();
       setShowModal(false);
       setEditingService(null);
-    } catch (error) {
-      console.error("Erro ao salvar serviço:", error);
+    } catch (err: unknown) {
+      console.error("Erro ao salvar serviço:", err);
+      toast.error("Erro ao salvar serviço");
     } finally {
       setModalLoading(false);
     }
@@ -206,187 +144,80 @@ export default function ServicesPage() {
     setModalLoading(true);
     try {
       await serviceService.delete(deletingService.id);
+      toast.success("Serviço removido!");
       await loadServices();
       setDeletingService(null);
-    } catch (error) {
-      console.error("Erro ao deletar serviço:", error);
+    } catch (err: unknown) {
+      let message = "Erro ao remover serviço";
+      if (err && typeof err === "object" && "response" in err) {
+        const axiosErr = err as AxiosError<{ error?: string }>;
+        message = axiosErr.response?.data?.error || message;
+      }
+      toast.error(message);
     } finally {
       setModalLoading(false);
     }
   }
 
-  async function handleToggleActive(id: number) {
-    const service = services.find(s => s.id === id);
-    if (service) {
-      try {
-        await serviceService.update(id, { active: !service.active });
-        await loadServices();
-      } catch (error) {
-        console.error("Erro ao alternar status:", error);
-      }
+  async function handleRestore(id: number) {
+    try {
+      await serviceService.update(id, { active: true });
+      toast.success("Serviço restaurado!");
+      await loadServices();
+    } catch (err: unknown) {
+      console.error("Erro ao restaurar serviço:", err);
+      toast.error("Erro ao restaurar serviço");
     }
   }
 
-  function openEdit(service: Service) {
-    setEditingService(service);
-    setShowModal(true);
-  }
+  function openEdit(s: Service) { setEditingService(s); setShowModal(true); }
+  function openNew() { setEditingService(null); setShowModal(true); }
 
-  function openNew() {
-    setEditingService(null);
-    setShowModal(true);
-  }
+  const counts = {
+    todos: services.length,
+    ativos: services.filter(s => s.active).length,
+    inativos: services.filter(s => !s.active).length,
+  };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-amber-500"></div>
-      </div>
-    );
-  }
+  if (loading) return <div className="flex items-center justify-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-amber-500"></div></div>;
 
   return (
     <div className="p-6 space-y-6 max-w-6xl mx-auto">
-
-      {/* Cabeçalho */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold text-white">Serviços</h1>
-          <span className="bg-zinc-800 text-zinc-400 text-xs font-semibold px-2 py-0.5 rounded-full">
-            {services.length}
-          </span>
-        </div>
-        <button onClick={openNew}
-          className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold rounded-lg px-4 py-2.5 text-sm transition">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Novo serviço
-        </button>
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-semibold text-white">Serviços</h1>
+        <button onClick={openNew} className="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold rounded-lg px-4 py-2">Novo serviço</button>
       </div>
-
-      {/* Busca + Filtros */}
       <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1 max-w-xs">
-          <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar..."
-            className="w-full h-10 bg-zinc-900 border border-zinc-800 text-white placeholder-zinc-600 rounded-lg pl-10 pr-4 text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition"
-          />
-        </div>
-        <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-lg p-1 gap-1">
-          {(["todos", "ativos", "inativos"] as Filter[]).map((f) => (
-            <button key={f} onClick={() => setFilter(f)}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium capitalize transition ${
-                filter === f ? "bg-amber-500 text-zinc-950" : "text-zinc-400 hover:text-white"
-              }`}>
-              {f.charAt(0).toUpperCase() + f.slice(1)}
-              <span className={`ml-1.5 text-xs ${filter === f ? "text-zinc-800" : "text-zinc-600"}`}>
-                {counts[f]}
-              </span>
-            </button>
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar..." className="flex-1 h-10 bg-zinc-900 border border-zinc-800 text-white rounded-lg px-4" />
+        <div className="flex bg-zinc-900 border border-zinc-800 rounded-lg p-1">
+          {(["todos","ativos","inativos"] as Filter[]).map(f => (
+            <button key={f} onClick={() => setFilter(f)} className={`px-3 py-1.5 rounded-md text-sm capitalize ${filter === f ? "bg-amber-500 text-zinc-950" : "text-zinc-400"}`}>{f} ({counts[f]})</button>
           ))}
         </div>
       </div>
-
-      {/* Grid de cards */}
-      {filtered.length === 0 ? (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-5 py-12 text-center">
-          <svg className="w-10 h-10 text-zinc-700 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-          </svg>
-          <p className="text-zinc-500 text-sm">Nenhum serviço encontrado</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filtered.map((service) => (
-            <div key={service.id}
-              className={`bg-zinc-900 border border-zinc-800 rounded-xl p-5 flex flex-col gap-4 hover:border-zinc-700 transition ${!service.active ? "opacity-60" : ""}`}>
-
-              {/* Ícone + status */}
-              <div className="flex items-start justify-between">
-                <div className="w-10 h-10 bg-amber-500/10 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243-4.243 3 3 0 004.243 4.243zm7.364-9.243a3 3 0 10-4.243 4.243 3 3 0 004.243-4.243z" />
-                  </svg>
-                </div>
-                {!service.active && (
-                  <span className="text-xs bg-zinc-800 text-zinc-500 border border-zinc-700 px-2 py-0.5 rounded-full">
-                    Inativo
-                  </span>
-                )}
-              </div>
-
-              {/* Info */}
-              <div className="flex flex-col gap-1">
-                <h3 className="text-white font-semibold text-sm">{service.name}</h3>
-                <div className="flex items-center gap-1 text-zinc-500 text-xs">
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  {formatDuration(service.duration)}
-                </div>
-                <p className="text-white font-semibold text-base mt-1">
-                  {formatPrice(service.price)}
-                </p>
-              </div>
-
-              {/* Ações */}
-              <div className="flex items-center gap-2 pt-1 border-t border-zinc-800">
-                <button
-                  onClick={() => openEdit(service)}
-                  className="flex-1 flex items-center justify-center gap-1.5 h-8 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white rounded-lg text-xs font-medium transition"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                  Editar
-                </button>
-                <button
-                  onClick={() => handleToggleActive(service.id)}
-                  className={`flex-1 flex items-center justify-center h-8 rounded-lg text-xs font-medium transition ${
-                    service.active
-                      ? "bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white"
-                      : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400"
-                  }`}
-                >
-                  {service.active ? "Desativar" : "Ativar"}
-                </button>
-                <button
-                  onClick={() => setDeletingService(service)}
-                  className="w-8 h-8 flex items-center justify-center bg-zinc-800 hover:bg-red-500/10 text-zinc-500 hover:text-red-400 rounded-lg transition"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
-              </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filtered.map(s => (
+          <div key={s.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+            <h3 className="text-white font-semibold">{s.name}</h3>
+            {s.description && <p className="text-zinc-400 text-sm mt-1">{s.description}</p>}
+            <div className="flex items-center gap-3 mt-3">
+              <span className="text-xs bg-zinc-800 text-amber-400 px-2 py-1 rounded">⏱️ {formatDuration(s.duration)}</span>
+              <span className="text-sm font-semibold text-emerald-400">{formatPrice(s.price)}</span>
             </div>
-          ))}
-        </div>
-      )}
-
-      {/* Modais */}
-      {showModal && (
-        <ServiceModal
-          service={editingService}
-          onClose={() => { setShowModal(false); setEditingService(null); }}
-          onSave={handleSave}
-          loading={modalLoading}
-        />
-      )}
-      {deletingService && (
-        <DeleteModal
-          service={deletingService}
-          onClose={() => setDeletingService(null)}
-          onConfirm={handleDelete}
-          loading={modalLoading}
-        />
-      )}
+            <div className="mt-4 flex gap-2">
+              <button onClick={() => openEdit(s)} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white py-2 rounded-lg">Editar</button>
+              {!s.active ? (
+                <button onClick={() => handleRestore(s.id)} className="flex-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 py-2 rounded-lg">Restaurar</button>
+              ) : (
+                <button onClick={() => setDeletingService(s)} className="flex-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 py-2 rounded-lg">Excluir</button>
+              )}
+            </div>
+          </div>
+        ))}
+        {filtered.length === 0 && <div className="col-span-full text-center text-zinc-500 py-12">Nenhum serviço encontrado</div>}
+      </div>
+      {showModal && <ServiceModal service={editingService} onClose={() => { setShowModal(false); setEditingService(null); }} onSave={handleSave} loading={modalLoading} />}
+      {deletingService && <DeleteModal service={deletingService} onClose={() => setDeletingService(null)} onConfirm={handleDelete} loading={modalLoading} />}
     </div>
   );
 }

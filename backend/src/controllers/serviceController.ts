@@ -28,8 +28,15 @@ export const serviceController = {
   },
 
   async delete(req: Request, res: Response) {
-    const { id } = req.params;
-    await serviceService.delete(Number(id));
-    res.status(204).send();
+    try {
+      await serviceService.delete(Number(req.params.id));
+      res.status(204).send();
+    } catch (error: any) {
+      if (error.message.includes('agendamentos')) {
+        return res.status(400).json({ error: error.message });
+      }
+      console.error(error);
+      res.status(500).json({ error: 'Erro ao deletar serviço' });
+    }
   },
 };

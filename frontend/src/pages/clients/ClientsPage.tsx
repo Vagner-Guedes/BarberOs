@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+//import { useNavigate } from "react-router-dom";
 import { clientService } from "../../services/api/clientService";
 import type { Client } from "../../services/api/clientService";
+import { toast } from "sonner";
+import type { AxiosError } from "axios";
 
 type Filter = "todos" | "ativos" | "inativos";
 
@@ -10,12 +12,12 @@ function getInitialsColor(initials: string) {
   return colors[initials.charCodeAt(0) % colors.length];
 }
 
-function formatDate(dateString: string) {
-  return new Date(dateString).toLocaleDateString("pt-BR");
-}
-
 function getInitials(name: string) {
   return name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
+}
+
+function formatDate(dateString: string) {
+  return new Date(dateString).toLocaleDateString("pt-BR");
 }
 
 interface ModalProps {
@@ -124,7 +126,7 @@ function DeleteModal({ client, onClose, onConfirm, loading }: DeleteModalProps) 
 }
 
 export default function ClientsPage() {
-  const navigate = useNavigate();
+  //const navigate = useNavigate();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -143,8 +145,9 @@ export default function ClientsPage() {
       setLoading(true);
       const data = await clientService.getAll();
       setClients(data);
-    } catch (error) {
-      console.error("Erro ao carregar clientes:", error);
+    } catch (err: unknown) {
+      console.error("Erro ao carregar clientes:", err);
+      toast.error("Erro ao carregar clientes");
     } finally {
       setLoading(false);
     }
@@ -165,14 +168,17 @@ export default function ClientsPage() {
     try {
       if (editingClient) {
         await clientService.update(editingClient.id, data);
+        toast.success("Cliente atualizado com sucesso!");
       } else {
         await clientService.create(data);
+        toast.success("Cliente cadastrado com sucesso!");
       }
       await loadClients();
       setShowModal(false);
       setEditingClient(null);
-    } catch (error) {
-      console.error("Erro ao salvar cliente:", error);
+    } catch (err: unknown) {
+      console.error("Erro ao salvar cliente:", err);
+      toast.error("Erro ao salvar cliente");
     } finally {
       setModalLoading(false);
     }
@@ -183,10 +189,16 @@ export default function ClientsPage() {
     setModalLoading(true);
     try {
       await clientService.delete(deletingClient.id);
+      toast.success("Cliente removido com sucesso!");
       await loadClients();
       setDeletingClient(null);
-    } catch (error) {
-      console.error("Erro ao deletar cliente:", error);
+    } catch (err: unknown) {
+      let message = "Erro ao remover cliente";
+      if (err && typeof err === "object" && "response" in err) {
+        const axiosErr = err as AxiosError<{ error?: string }>;
+        message = axiosErr.response?.data?.error || message;
+      }
+      toast.error(message);
     } finally {
       setModalLoading(false);
     }
@@ -195,9 +207,11 @@ export default function ClientsPage() {
   async function handleRestore(id: number) {
     try {
       await clientService.update(id, { active: true });
+      toast.success("Cliente restaurado com sucesso!");
       await loadClients();
-    } catch (error) {
-      console.error("Erro ao restaurar cliente:", error);
+    } catch (err: unknown) {
+      console.error("Erro ao restaurar cliente:", err);
+      toast.error("Erro ao restaurar cliente");
     }
   }
 
@@ -227,8 +241,6 @@ export default function ClientsPage() {
 
   return (
     <div className="p-4 sm:p-6 space-y-5 max-w-6xl mx-auto">
-
-      {/* Cabeçalho */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <h1 className="text-xl sm:text-2xl font-semibold text-white">Clientes</h1>
@@ -237,16 +249,12 @@ export default function ClientsPage() {
           </span>
         </div>
         <button onClick={openNew}
-          className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold rounded-lg px-3 sm:px-4 py-2.5 text-sm transition">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
+          className="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold rounded-lg px-3 sm:px-4 py-2.5 text-sm transition">
           <span className="hidden sm:inline">Novo cliente</span>
           <span className="sm:hidden">Novo</span>
         </button>
       </div>
 
-      {/* Busca + Filtros */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -271,7 +279,6 @@ export default function ClientsPage() {
         </div>
       </div>
 
-      {/* Tabela — desktop */}
       <div className="hidden md:block bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
         <div className="grid grid-cols-12 gap-4 px-5 py-3 border-b border-zinc-800">
           <span className="col-span-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Nome</span>
@@ -282,20 +289,19 @@ export default function ClientsPage() {
         </div>
         <div className="divide-y divide-zinc-800/50">
           {filtered.length === 0 ? (
-            <EmptyState />
+            <div className="px-5 py-12 text-center">
+              <p className="text-zinc-500 text-sm">Nenhum cliente encontrado</p>
+            </div>
           ) : (
             filtered.map((client) => (
-              <div key={client.id}
-                className={`grid grid-cols-12 gap-4 px-5 py-4 hover:bg-zinc-800/30 transition items-center ${!client.active ? "opacity-60" : ""}`}>
+              <div key={client.id} className="grid grid-cols-12 gap-4 px-5 py-4 hover:bg-zinc-800/30 transition items-center">
                 <div className="col-span-3 flex items-center gap-3 min-w-0">
                   <div className={`w-9 h-9 ${getInitialsColor(getInitials(client.name))} rounded-full flex items-center justify-center shrink-0`}>
                     <span className="text-white text-xs font-semibold">{getInitials(client.name)}</span>
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-white truncate">{client.name}</p>
-                    {!client.active && (
-                      <span className="text-xs bg-zinc-700 text-zinc-400 px-1.5 py-0.5 rounded">Inativo</span>
-                    )}
+                    {!client.active && <span className="text-xs bg-zinc-700 text-zinc-400 px-1.5 py-0.5 rounded">Inativo</span>}
                   </div>
                 </div>
                 <div className="col-span-3">
@@ -308,13 +314,24 @@ export default function ClientsPage() {
                   <p className="text-sm text-zinc-400">{formatDate(client.createdAt)}</p>
                 </div>
                 <div className="col-span-2 flex items-center justify-end gap-1">
-                  <ActionButtons
-                    client={client}
-                    onView={() => navigate(`/clients/${client.id}`)}
-                    onEdit={() => openEdit(client)}
-                    onDelete={() => setDeletingClient(client)}
-                    onRestore={() => handleRestore(client.id)}
-                  />
+                  <button onClick={() => openEdit(client)} className="p-2 text-zinc-500 hover:text-amber-500 rounded-lg" title="Editar">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </button>
+                  {!client.active ? (
+                    <button onClick={() => handleRestore(client.id)} className="p-2 text-zinc-500 hover:text-emerald-400 rounded-lg" title="Restaurar">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                    </button>
+                  ) : (
+                    <button onClick={() => setDeletingClient(client)} className="p-2 text-zinc-500 hover:text-red-400 rounded-lg" title="Remover">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  )}
                 </div>
               </div>
             ))
@@ -322,57 +339,59 @@ export default function ClientsPage() {
         </div>
       </div>
 
-      {/* Cards — mobile */}
       <div className="md:hidden space-y-3">
-        {filtered.length === 0 ? (
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl">
-            <EmptyState />
-          </div>
-        ) : (
-          filtered.map((client) => (
-            <div key={client.id}
-              className={`bg-zinc-900 border border-zinc-800 rounded-xl p-4 ${!client.active ? "opacity-60" : ""}`}>
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className={`w-10 h-10 ${getInitialsColor(getInitials(client.name))} rounded-full flex items-center justify-center shrink-0`}>
-                    <span className="text-white text-sm font-semibold">{getInitials(client.name)}</span>
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-sm font-semibold text-white truncate">{client.name}</p>
-                      {!client.active && (
-                        <span className="text-xs bg-zinc-700 text-zinc-400 px-1.5 py-0.5 rounded shrink-0">Inativo</span>
-                      )}
-                    </div>
-                    <p className="text-xs text-zinc-500 truncate mt-0.5">{client.email || "—"}</p>
-                  </div>
+        {filtered.map((client) => (
+          <div key={client.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className={`w-10 h-10 ${getInitialsColor(getInitials(client.name))} rounded-full flex items-center justify-center shrink-0`}>
+                  <span className="text-white text-sm font-semibold">{getInitials(client.name)}</span>
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <ActionButtons
-                    client={client}
-                    onView={() => navigate(`/clients/${client.id}`)}
-                    onEdit={() => openEdit(client)}
-                    onDelete={() => setDeletingClient(client)}
-                    onRestore={() => handleRestore(client.id)}
-                  />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-white truncate">{client.name}</p>
+                  <p className="text-xs text-zinc-500 truncate">{client.email || "—"}</p>
                 </div>
               </div>
-              <div className="mt-3 pt-3 border-t border-zinc-800 grid grid-cols-2 gap-2">
-                <div>
-                  <p className="text-xs text-zinc-600 mb-0.5">Telefone</p>
-                  <p className="text-xs text-zinc-300">{client.phone}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-zinc-600 mb-0.5">Cadastrado em</p>
-                  <p className="text-xs text-zinc-300">{formatDate(client.createdAt)}</p>
-                </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button onClick={() => openEdit(client)} className="p-2 text-zinc-500 hover:text-amber-500 rounded-lg">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+                {!client.active ? (
+                  <button onClick={() => handleRestore(client.id)} className="p-2 text-zinc-500 hover:text-emerald-400 rounded-lg">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </button>
+                ) : (
+                  <button onClick={() => setDeletingClient(client)} className="p-2 text-zinc-500 hover:text-red-400 rounded-lg">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                )}
               </div>
             </div>
-          ))
+            <div className="mt-3 pt-3 border-t border-zinc-800 grid grid-cols-2 gap-2">
+              <div>
+                <p className="text-xs text-zinc-600">Telefone</p>
+                <p className="text-xs text-zinc-300">{client.phone}</p>
+              </div>
+              <div>
+                <p className="text-xs text-zinc-600">Cadastro</p>
+                <p className="text-xs text-zinc-300">{formatDate(client.createdAt)}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+        {filtered.length === 0 && (
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-5 py-12 text-center">
+            <p className="text-zinc-500 text-sm">Nenhum cliente encontrado</p>
+          </div>
         )}
       </div>
 
-      {/* Modais */}
       {showModal && (
         <ClientModal
           client={editingClient}
@@ -390,59 +409,5 @@ export default function ClientsPage() {
         />
       )}
     </div>
-  );
-}
-
-function EmptyState() {
-  return (
-    <div className="px-5 py-12 text-center">
-      <svg className="w-10 h-10 text-zinc-700 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-      </svg>
-      <p className="text-zinc-500 text-sm">Nenhum cliente encontrado</p>
-    </div>
-  );
-}
-
-interface ActionButtonsProps {
-  client: Client;
-  onView: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
-  onRestore: () => void;
-}
-
-function ActionButtons({ client, onView, onEdit, onDelete, onRestore }: ActionButtonsProps) {
-  return (
-    <>
-      <button onClick={onView}
-        className="p-2 text-zinc-500 hover:text-amber-500 hover:bg-amber-500/10 rounded-lg transition" title="Ver detalhes">
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-        </svg>
-      </button>
-      <button onClick={onEdit}
-        className="p-2 text-zinc-500 hover:text-amber-500 hover:bg-amber-500/10 rounded-lg transition" title="Editar">
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-        </svg>
-      </button>
-      {!client.active ? (
-        <button onClick={onRestore}
-          className="p-2 text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition" title="Restaurar">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-        </button>
-      ) : (
-        <button onClick={onDelete}
-          className="p-2 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition" title="Remover">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-        </button>
-      )}
-    </>
   );
 }

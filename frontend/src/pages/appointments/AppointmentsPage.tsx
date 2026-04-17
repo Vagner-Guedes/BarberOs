@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { appointmentService } from "../../services/api/appointmentService";
 import { clientService } from "../../services/api/clientService";
 import type { Client } from "../../services/api/clientService";
@@ -7,6 +7,7 @@ import type { Professional } from "../../services/api/professionalService";
 import { serviceService } from "../../services/api/serviceService";
 import type { Service } from "../../services/api/serviceService";
 import type { AxiosError } from "axios";
+import { toast } from "sonner";
 
 interface AppointmentData {
   clientId: number;
@@ -32,8 +33,7 @@ interface Appointment {
 const pad = (n: number): string => String(n).padStart(2, "0");
 const fmt = (d: Date): string => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-// Horários das 08:00 às 20:00 (24 slots de 30 minutos)
-const TIME_SLOTS: string[] = Array.from({ length: 24 }, (_, i) => {
+const TIME_SLOTS: string[] = Array.from({ length: 32 }, (_, i) => {
   const h = 8 + Math.floor(i / 2);
   const m = i % 2 === 0 ? "00" : "30";
   return `${pad(h)}:${m}`;
@@ -69,13 +69,17 @@ const APPT_COLORS: string[] = [
   "bg-sky-500/20 border-sky-500/40 text-sky-300",
 ];
 
-
 const STATUS_OPTIONS = [
   { value: "scheduled", label: "Agendado", color: "bg-amber-500/10 text-amber-400" },
   { value: "confirmed", label: "Confirmado", color: "bg-emerald-500/10 text-emerald-400" },
   { value: "completed", label: "Concluído", color: "bg-blue-500/10 text-blue-400" },
   { value: "cancelled", label: "Cancelado", color: "bg-red-500/10 text-red-400" },
 ];
+
+function truncate(str: string, maxLen: number): string {
+  if (str.length <= maxLen) return str;
+  return str.substring(0, maxLen - 2) + "..";
+}
 
 interface NewAppointmentModalProps {
   onClose: () => void;
@@ -126,9 +130,13 @@ function NewAppointmentModal({
         notes 
       });
       onClose();
-    } catch (err: AxiosError | unknown) {
-      const axiosError = err as AxiosError<{ error?: string }>;
-      setError(axiosError.response?.data?.error || "Erro ao agendar");
+    } catch (err: unknown) {
+      let message = "Erro ao agendar";
+      if (err && typeof err === "object" && "response" in err) {
+        const axiosErr = err as AxiosError<{ error?: string }>;
+        message = axiosErr.response?.data?.error || message;
+      }
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -219,6 +227,7 @@ interface EditAppointmentModalProps {
   onClose: () => void;
   onUpdate: (id: number, data: Partial<Appointment>) => Promise<void>;
   onCancel: (id: number) => Promise<void>;
+  onDelete: (id: number) => Promise<void>;
   clients: Client[];
   professionals: Professional[];
   services: Service[];
@@ -230,6 +239,7 @@ function EditAppointmentModal({
   onClose, 
   onUpdate, 
   onCancel,
+  onDelete,
   clients, 
   professionals, 
   services,
@@ -245,6 +255,7 @@ function EditAppointmentModal({
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState<boolean>(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
 
   async function handleUpdate(e: React.FormEvent) {
     e.preventDefault();
@@ -266,9 +277,13 @@ function EditAppointmentModal({
         notes,
       });
       onClose();
-    } catch (err: AxiosError | unknown) {
-      const axiosError = err as AxiosError<{ error?: string }>;
-      setError(axiosError.response?.data?.error || "Erro ao atualizar");
+    } catch (err: unknown) {
+      let message = "Erro ao atualizar";
+      if (err && typeof err === "object" && "response" in err) {
+        const axiosErr = err as AxiosError<{ error?: string }>;
+        message = axiosErr.response?.data?.error || message;
+      }
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -279,9 +294,29 @@ function EditAppointmentModal({
     try {
       await onCancel(appointment.id);
       onClose();
-    } catch (err: AxiosError | unknown) {
-      const axiosError = err as AxiosError<{ error?: string }>;
-      setError(axiosError.response?.data?.error || "Erro ao cancelar");
+    } catch (err: unknown) {
+      let message = "Erro ao cancelar";
+      if (err && typeof err === "object" && "response" in err) {
+        const axiosErr = err as AxiosError<{ error?: string }>;
+        message = axiosErr.response?.data?.error || message;
+      }
+      setError(message);
+      setLoading(false);
+    }
+  }
+
+  async function handleDelete() {
+    setLoading(true);
+    try {
+      await onDelete(appointment.id);
+      onClose();
+    } catch (err: unknown) {
+      let message = "Erro ao excluir";
+      if (err && typeof err === "object" && "response" in err) {
+        const axiosErr = err as AxiosError<{ error?: string }>;
+        message = axiosErr.response?.data?.error || message;
+      }
+      setError(message);
       setLoading(false);
     }
   }
@@ -315,6 +350,27 @@ function EditAppointmentModal({
               <button onClick={handleCancel} disabled={loading || parentLoading}
                 className="flex-1 h-10 bg-red-500 hover:bg-red-400 disabled:opacity-50 text-white rounded-lg text-sm font-semibold">
                 {loading ? "Cancelando..." : "Sim, cancelar"}
+              </button>
+            </div>
+          </div>
+        ) : showDeleteConfirm ? (
+          <div className="px-6 py-5 space-y-4">
+            <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3">
+              <p className="text-red-400 text-sm text-center">
+                Tem certeza que deseja excluir permanentemente este agendamento?
+              </p>
+              <p className="text-zinc-500 text-xs text-center mt-2">
+                Esta ação não pode ser desfeita.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 h-10 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 rounded-lg text-sm font-medium">
+                Voltar
+              </button>
+              <button onClick={handleDelete} disabled={loading || parentLoading}
+                className="flex-1 h-10 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold">
+                {loading ? "Excluindo..." : "Sim, excluir"}
               </button>
             </div>
           </div>
@@ -386,14 +442,20 @@ function EditAppointmentModal({
                 <p className="text-red-400 text-sm">{error}</p>
               </div>
             )}
-            <div className="flex gap-3 pt-2">
-              <button type="button" onClick={() => setShowCancelConfirm(true)}
-                className="flex-1 h-10 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-sm font-medium transition">
-                Cancelar agendamento
-              </button>
-              <button type="submit" disabled={loading || parentLoading}
-                className="flex-1 h-10 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-zinc-950 rounded-lg text-sm font-semibold">
-                {loading ? "Salvando..." : "Salvar alterações"}
+            <div className="flex flex-col gap-2 pt-2">
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setShowCancelConfirm(true)}
+                  className="flex-1 h-10 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-sm font-medium transition">
+                  Cancelar agendamento
+                </button>
+                <button type="submit" disabled={loading || parentLoading}
+                  className="flex-1 h-10 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-zinc-950 rounded-lg text-sm font-semibold">
+                  {loading ? "Salvando..." : "Salvar alterações"}
+                </button>
+              </div>
+              <button type="button" onClick={() => setShowDeleteConfirm(true)}
+                className="w-full h-10 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg text-sm font-medium transition">
+                Excluir permanentemente
               </button>
             </div>
           </form>
@@ -416,11 +478,7 @@ export default function AppointmentsPage() {
   const [clickedDate, setClickedDate] = useState<string | undefined>();
   const [clickedTime, setClickedTime] = useState<string | undefined>();
 
-  useEffect(() => {
-    loadData();
-  }, [currentDate]);
-
-  async function loadData(): Promise<void> {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const weekDates = getWeekDates(currentDate);
@@ -437,12 +495,17 @@ export default function AppointmentsPage() {
       setClients(clientsData);
       setProfessionals(prosData);
       setServices(servsData);
-    } catch (error) {
-      console.error("Erro ao carregar dados:", error);
+    } catch (err: unknown) {
+      console.error("Erro ao carregar dados:", err);
+      toast.error("Erro ao carregar dados da agenda");
     } finally {
       setLoading(false);
     }
-  }
+  }, [currentDate]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const weekDates: Date[] = getWeekDates(currentDate);
   const todayStr: string = fmt(new Date());
@@ -475,23 +538,70 @@ export default function AppointmentsPage() {
   }
 
   async function handleSave(apptData: AppointmentData): Promise<void> {
-    await appointmentService.create(apptData);
-    await loadData();
-    setShowNewModal(false);
+    try {
+      await appointmentService.create(apptData);
+      toast.success("Agendamento criado com sucesso!");
+      await loadData();
+      setShowNewModal(false);
+    } catch (err: unknown) {
+      let message = "Erro ao criar agendamento";
+      if (err && typeof err === "object" && "response" in err) {
+        const axiosErr = err as AxiosError<{ error?: string }>;
+        message = axiosErr.response?.data?.error || message;
+      }
+      toast.error(message);
+    }
   }
 
   async function handleUpdate(id: number, data: Partial<Appointment>): Promise<void> {
-    await appointmentService.update(id, data);
-    await loadData();
-    setShowEditModal(false);
-    setSelectedAppointment(null);
+    try {
+      await appointmentService.update(id, data);
+      toast.success("Agendamento atualizado com sucesso!");
+      await loadData();
+      setShowEditModal(false);
+      setSelectedAppointment(null);
+    } catch (err: unknown) {
+      let message = "Erro ao atualizar agendamento";
+      if (err && typeof err === "object" && "response" in err) {
+        const axiosErr = err as AxiosError<{ error?: string }>;
+        message = axiosErr.response?.data?.error || message;
+      }
+      toast.error(message);
+    }
   }
 
   async function handleCancel(id: number): Promise<void> {
-    await appointmentService.update(id, { status: "cancelled" });
-    await loadData();
-    setShowEditModal(false);
-    setSelectedAppointment(null);
+    try {
+      await appointmentService.update(id, { status: "cancelled" });
+      toast.success("Agendamento cancelado com sucesso!");
+      await loadData();
+      setShowEditModal(false);
+      setSelectedAppointment(null);
+    } catch (err: unknown) {
+      let message = "Erro ao cancelar agendamento";
+      if (err && typeof err === "object" && "response" in err) {
+        const axiosErr = err as AxiosError<{ error?: string }>;
+        message = axiosErr.response?.data?.error || message;
+      }
+      toast.error(message);
+    }
+  }
+
+  async function handleDelete(id: number): Promise<void> {
+    try {
+      await appointmentService.delete(id);
+      toast.success("Agendamento excluído com sucesso!");
+      await loadData();
+      setShowEditModal(false);
+      setSelectedAppointment(null);
+    } catch (err: unknown) {
+      let message = "Erro ao excluir agendamento";
+      if (err && typeof err === "object" && "response" in err) {
+        const axiosErr = err as AxiosError<{ error?: string }>;
+        message = axiosErr.response?.data?.error || message;
+      }
+      toast.error(message);
+    }
   }
 
   const weekStart: Date = weekDates[0];
@@ -528,10 +638,7 @@ export default function AppointmentsPage() {
           <span className="text-zinc-300 text-sm font-medium hidden sm:inline">{weekLabel}</span>
         </div>
         <button onClick={() => { setClickedDate(todayStr); setClickedTime("09:00"); setShowNewModal(true); }}
-          className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold rounded-lg px-4 py-2 text-sm">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
+          className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold rounded-lg px-4 py-2 text-sm transition">
           Novo agendamento
         </button>
       </div>
@@ -578,7 +685,7 @@ export default function AppointmentsPage() {
 
               const timeStr = apptDate.toTimeString().slice(0, 5);
               const startMin = timeToMinutes(timeStr);
-              const startFrom = timeToMinutes("08:00");
+              const startFrom = timeToMinutes("07:00");
               const topPx = ((startMin - startFrom) / 30) * SLOT_HALF;
               const duration = appt.service?.duration || 30;
               const heightPx = Math.max((duration / 30) * SLOT_HALF - 2, 24);
@@ -592,17 +699,31 @@ export default function AppointmentsPage() {
               else if (appt.status === "confirmed") statusColorClass = "bg-emerald-500/20 border-emerald-500/40 text-emerald-300";
               else statusColorClass = APPT_COLORS[colorIndex];
 
+              const clientName = appt.client?.name || "Cliente";
+              const serviceName = appt.service?.name || "";
+              const professionalName = appt.professional?.name || "";
+              const startTimeDisplay = timeStr;
+
+              const shortClient = truncate(clientName, 20);
+              const shortService = truncate(serviceName, 18);
+              const shortProfessional = truncate(professionalName, 18);
+
               return (
                 <div key={appt.id}
                   onClick={() => handleAppointmentClick(appt)}
                   className={`absolute border rounded-lg px-2 py-1 text-xs font-medium cursor-pointer hover:opacity-90 transition overflow-hidden ${statusColorClass}`}
-                  style={{ top: topPx + 1, left: leftVal, width: `calc(${colWidth} - 4px)`, height: heightPx }}>
-                  <p className="truncate font-semibold leading-tight">{appt.client?.name || 'Cliente'}</p>
+                  style={{ top: topPx + 1, left: leftVal, width: `calc(${colWidth} - 4px)`, height: heightPx }}
+                  title={`${clientName} - ${serviceName} - ${professionalName} - ${startTimeDisplay}`}>
+                  <p className="truncate font-semibold leading-tight">{shortClient}</p>
                   {heightPx > 32 && (
-                    <p className="truncate opacity-80 leading-tight">{appt.service?.name}</p>
+                    <p className="truncate opacity-80 leading-tight text-[10px]">
+                      {shortService} • {shortProfessional}
+                    </p>
                   )}
-                  {heightPx > 48 && appt.status === "cancelled" && (
-                    <p className="truncate text-[10px] opacity-70">Cancelado</p>
+                  {heightPx > 48 && (
+                    <p className="truncate text-[9px] opacity-70 mt-0.5">
+                      {startTimeDisplay} • {STATUS_OPTIONS.find(s => s.value === appt.status)?.label || appt.status}
+                    </p>
                   )}
                 </div>
               );
@@ -630,6 +751,7 @@ export default function AppointmentsPage() {
           onClose={() => { setShowEditModal(false); setSelectedAppointment(null); }}
           onUpdate={handleUpdate}
           onCancel={handleCancel}
+          onDelete={handleDelete}
           clients={clients}
           professionals={professionals}
           services={services}

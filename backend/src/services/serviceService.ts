@@ -29,6 +29,12 @@ export const serviceService = {
   },
 
   async delete(id: number): Promise<void> {
+    const appointmentsCount = await prisma.appointment.count({
+      where: { serviceId: id }
+    });
+    if (appointmentsCount > 0) {
+      throw new Error('Não é possível excluir um serviço que possui agendamentos. Desative-o em vez de excluir.');
+    }
     await prisma.service.delete({ where: { id } });
   },
 };
